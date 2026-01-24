@@ -1,0 +1,29 @@
+Health Insurance Claim Form PDF
+Policyholder Information​
+Full Name: John Doe
+Policy Number:123-456-789
+Date of Birth: 01-01-1980
+Contact Number: 555-123-4567
+Email Address: john.doe@example.com
+Address: 123 Main Street, Anytown, USA 12345
+Claim Details​
+Date of Illness/Accident: 01/10/2026
+Place of Treatment: Anytown General Hospital
+Name of Healthcare Provider: Dr. Jane Smith
+Type of Treatment Received: Outpatient consultation and X-ray
+Total Claimed Amount: $2,500
+Medical Information​
+Diagnosis: Sprained ankle
+Prescribed Medication: Ibuprofen and ace bandage
+Hospital Stay Duration (if applicable): N/A
+Supporting Documents Submitted​
+X Medical Bills​
+X Doctor’s Report​
+X Prescription Copies​
+Other:
+Declaration​
+X I certify that the information provided is accurate to the best of my knowledge.​
+X I authorize the insurer to verify details and process my claim.
+Policyholder Name: John Doe
+Signature: John Doe
+Date: 01/22/2026
