@@ -133,10 +133,12 @@ def handler(event, context):
     try:
         claimant_name = extracted_info['claimant_name']
         policy_number = extracted_info['policy_number']
+        claim_id = str(uuid.uuid4())
 
         ddb_response = claims_table.put_item(Item={
             'PK': f'CLAIMANTNAME#{claimant_name}',
-            'SK': f'CLAIMANTID#{uuid.uuid4()}',
+            'SK': f'CLAIMID#{claim_id}',
+            'ClaimId': claim_id,
             'PolicyNumber': f'POLICY_NUMBER#{policy_number}',
             'Summary': summary,
             'ModelId': model_id,

@@ -25,14 +25,16 @@ def handler(event, context):
                 print(f'Error while getting connection id from table: {e}')
 
             items = response['Items']
+            print('Query response: ', items)
             if len(items):
                 for item in response['Items']:
                     connection_id = item['ConnectionId']
+                    print('connection id: ', connection_id)
                     try:
                         apigw_client.post_to_connection(ConnectionId=connection_id, Data=data)
                         print(f'Summary data sent to client. Connection id: {connection_id}. Data: {data}')
                     except apigw_client.exceptions.GoneException:
-                        table.delete_item(Key={'PK': 'CONNECTION', 'SK': connection_id})
+                        # table.delete_item(Key={'PK': 'CONNECTION', 'SK': connection_id})
                         print(f'No data sent to client. Connection id: {connection_id}')
             else:
                 print('No client connections established')

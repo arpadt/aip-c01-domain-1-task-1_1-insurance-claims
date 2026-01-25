@@ -32,7 +32,15 @@ export class InsuranceClaimsStack extends cdk.Stack {
       throw new Error('Basic stack configurations missing');
     }
 
-    const claimsBucket = new s3.Bucket(this, 'ClaimsBucket');
+    const claimsBucket = new s3.Bucket(this, 'ClaimsBucket', {
+      cors: [
+        {
+          allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.POST],
+          allowedOrigins: ['*'],
+          allowedHeaders: ['*'],
+        },
+      ],
+    });
 
     const claimsTable = new dynamodb.Table(this, 'ClaimsTable', {
       partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
@@ -197,10 +205,25 @@ export class InsuranceClaimsStack extends cdk.Stack {
 
     const restApi = new apigateway.RestApi(this, 'InsuranceClaimsApi', {
       endpointTypes: [apigateway.EndpointType.REGIONAL],
+      defaultCorsPreflightOptions: {
+        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowMethods: apigateway.Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'Authorization'],
+        statusCode: 200,
+      },
     });
     const processResource = restApi.root.addResource('process');
     const processIntegration = new apigateway.LambdaIntegration(presignedUrlFn);
-    processResource.addMethod('GET', processIntegration);
+    const processGetEndpoint = processResource.addMethod(
+      'GET',
+      processIntegration,
+    );
+    processGetEndpoint.addMethodResponse({
+      statusCode: '200',
+      responseParameters: {
+        'method.response.header.Access-Control-Allow-Origin': true,
+      },
+    });
 
     const webSocketApi = new apigatewayv2.WebSocketApi(
       this,

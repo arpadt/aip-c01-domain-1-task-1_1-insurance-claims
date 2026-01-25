@@ -6,6 +6,7 @@ s3_client = boto3.client('s3')
 BUCKET_NAME = os.environ['CLAIMS_BUCKET_NAME']
 
 def handler(event, context):
+    print('EVENT: ', event)
     key = event['queryStringParameters']['key']
 
     presigned_url = s3_client.generate_presigned_url(
@@ -16,5 +17,8 @@ def handler(event, context):
 
     return {
         'statusCode': 200,
-        'body': json.dumps({'url': presigned_url})
+        'body': json.dumps({'url': presigned_url}),
+        'headers': {
+            'Access-Control-Allow-Origin': '*'
+        }
     }
