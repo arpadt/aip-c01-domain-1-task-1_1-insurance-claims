@@ -25,11 +25,9 @@ def handler(event, context):
                 print(f'Error while getting connection id from table: {e}')
 
             items = response['Items']
-            print('Query response: ', items)
             if len(items):
                 for item in response['Items']:
                     connection_id = item['ConnectionId']
-                    print('connection id: ', connection_id)
                     try:
                         apigw_client.post_to_connection(ConnectionId=connection_id, Data=data)
                         print(f'Summary data sent to client. Connection id: {connection_id}. Data: {data}')
