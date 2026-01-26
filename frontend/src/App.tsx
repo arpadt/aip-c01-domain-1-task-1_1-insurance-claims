@@ -96,12 +96,24 @@ function App() {
             Insurance Claim Upload
           </h1>
           <div className='space-y-4'>
-            <input
-              type='file'
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              disabled={uploading}
-              className='block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none'
-            />
+            <div className='flex items-center gap-4'>
+              <input
+                type='file'
+                id='file-input'
+                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                disabled={uploading}
+                className='hidden'
+              />
+              <label
+                htmlFor='file-input'
+                className='px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 cursor-pointer disabled:bg-gray-300'
+              >
+                Choose File
+              </label>
+              <span className='text-sm text-gray-700'>
+                {file ? file.name : 'No file selected'}
+              </span>
+            </div>
             <button
               onClick={handleUpload}
               disabled={!file || uploading}
