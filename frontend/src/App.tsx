@@ -7,6 +7,11 @@ interface ClaimSummary {
   ClaimId: { S: string };
   Summary: { S: string };
   Type: { S: string };
+  TimeStamp: { S: string };
+  ModelId: { S: string };
+  InputTokens: { S: string };
+  OutputTokens: { S: string };
+  SummaryLength: { S: string };
 }
 
 function App() {
@@ -23,13 +28,19 @@ function App() {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      console.log('WS data: ', data);
       if (data.Type?.S === 'ClaimSummary') {
         setClaims((prev) => [data, ...prev]);
       }
     };
 
-    ws.onerror = (error) => console.error('WebSocket error:', error);
+    ws.onerror = (error) => {
+      if (
+        ws.readyState === WebSocket.OPEN ||
+        ws.readyState === WebSocket.CONNECTING
+      ) {
+        console.error('WebSocket error:', error);
+      }
+    };
     ws.onclose = () => console.log('WebSocket disconnected');
 
     wsRef.current = ws;
@@ -55,7 +66,6 @@ function App() {
       }
 
       const { url } = await response.json();
-      console.log('presigned url: ', url);
 
       const uploadResponse = await fetch(url, {
         method: 'PUT',
@@ -122,6 +132,17 @@ function App() {
                   <p className='mt-2 text-gray-700'>
                     Claim Summary: {claim.Summary.S}
                   </p>
+                  <p className='mt-2 text-gray-700'>
+                    Submission Time: {claim.TimeStamp.S}
+                  </p>
+                  <div className='mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500 space-y-1'>
+                    <p>Model: {claim.ModelId.S}</p>
+                    <p>
+                      Input Tokens: {claim.InputTokens.S} | Output Tokens:{' '}
+                      {claim.OutputTokens.S} | Summary Length:{' '}
+                      {claim.SummaryLength.S} characters
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>

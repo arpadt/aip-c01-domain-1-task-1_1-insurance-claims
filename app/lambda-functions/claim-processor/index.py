@@ -2,7 +2,7 @@ import boto3
 import json
 import os
 import uuid
-import time
+from datetime import datetime
 
 # Initialize clients
 s3 = boto3.client('s3')
@@ -63,6 +63,8 @@ def handler(event, context):
         "claim_amount": "$1,500",
         "incident_description": "An incident ..."
     }}
+
+    You MUST ONLY RETURN the JSON object. Every other text is disallowed.
     """
 
     # Invoke Bedrock model
@@ -93,7 +95,8 @@ def handler(event, context):
     extracted_info = json.loads(extraction_response_body['output']['message']['content'][0]['text'])
 
     # summarizaton time
-    start_time = time.time()
+    # start_time = time.time()
+    start_time = datetime.now()
 
     # Generate summary
     summary_prompt = f"""
@@ -125,17 +128,21 @@ def handler(event, context):
         print(f'Error while summarizing the claim: {e}')
         raise
 
-    elapsed_time = round((time.time() - start_time) * 1000)
+    # elapsed_time = round((time.time() - start_time) * 1000)
+    end_time = datetime.now()
+    elapsed_time = round((end_time - start_time).total_seconds() * 1000)
     summary_body = json.loads(summary_response['body'].read())
     summary = summary_body['output']['message']['content'][0]['text']
 
     invocation_info = extraction_response_body['usage']
+    timestamp = end_time.replace(microsecond=0).isoformat()
+
     try:
         claimant_name = extracted_info['claimant_name']
         policy_number = extracted_info['policy_number']
         claim_id = str(uuid.uuid4())
 
-        ddb_response = claims_table.put_item(Item={
+        claims_table.put_item(Item={
             'PK': f'CLAIMANTNAME#{claimant_name}',
             'SK': f'CLAIMID#{claim_id}',
             'ClaimId': claim_id,
@@ -147,6 +154,7 @@ def handler(event, context):
             'OutputTokens': str(invocation_info['outputTokens']),
             'SummarizationTimeMilliSeconds': str(elapsed_time),
             'Type': 'ClaimSummary',
+            'TimeStamp': timestamp
         })
     except Exception as e:
         print('Error while persisting summary: {e}')

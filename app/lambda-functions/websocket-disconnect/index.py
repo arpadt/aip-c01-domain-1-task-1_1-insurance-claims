@@ -7,6 +7,7 @@ table = dynamodb.Table(os.environ['CLAIMS_TABLE_NAME'])
 def handler(event, context):
     connection_id = event['requestContext']['connectionId']
     table.delete_item(Key={
-        'PK': f'CONNECTION#{connection_id}', 'SK': f'CONNECTION#{connection_id}'
+        'PK': 'CONNECTIONS', 'SK': f'CONNECTION#{connection_id}'
     })
+
     return {'statusCode': 200}
