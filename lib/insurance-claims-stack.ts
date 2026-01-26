@@ -239,6 +239,14 @@ export class InsuranceClaimsStack extends cdk.Stack {
       },
     );
 
+    const connectHandlerLogGroup = new logs.LogGroup(
+      this,
+      'ConnectHandlerLogGroup',
+      {
+        retention: logs.RetentionDays.FIVE_DAYS,
+      },
+    );
+
     const connectHandlerFn = new lambda.Function(this, 'ConnectHandlerFn', {
       runtime: lambda.Runtime.PYTHON_3_14,
       handler: 'index.handler',
@@ -246,8 +254,17 @@ export class InsuranceClaimsStack extends cdk.Stack {
       environment: {
         CLAIMS_TABLE_NAME: claimsTable.tableName,
       },
+      logGroup: connectHandlerLogGroup,
     });
     claimsTable.grantWriteData(connectHandlerFn);
+
+    const disconnectHandlerLogGroup = new logs.LogGroup(
+      this,
+      'DisconnectHandlerLogGroup',
+      {
+        retention: logs.RetentionDays.FIVE_DAYS,
+      },
+    );
 
     const disconnectHandlerFn = new lambda.Function(
       this,
@@ -261,6 +278,7 @@ export class InsuranceClaimsStack extends cdk.Stack {
         environment: {
           CLAIMS_TABLE_NAME: claimsTable.tableName,
         },
+        logGroup: disconnectHandlerLogGroup,
       },
     );
     claimsTable.grantWriteData(disconnectHandlerFn);
