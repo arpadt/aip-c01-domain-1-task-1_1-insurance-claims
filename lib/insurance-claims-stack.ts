@@ -9,6 +9,7 @@ import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as bedrock from 'aws-cdk-lib/aws-bedrock';
+import * as s3vectors from 'aws-cdk-lib/aws-s3vectors';
 import { DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { Construct } from 'constructs';
 
@@ -101,6 +102,106 @@ export class InsuranceClaimsStack extends cdk.Stack {
       },
     );
 
+    const knowledgeBaseSource = new s3.Bucket(
+      this,
+      'ClaimsKnowledgeBaseSource',
+    );
+    const vectorBucket = new s3vectors.CfnVectorBucket(
+      this,
+      'ClaimsVectorBucket',
+    );
+
+    const vectorIndex = new s3vectors.CfnIndex(this, 'ClaimsIndex', {
+      vectorBucketArn: vectorBucket.attrVectorBucketArn,
+      indexName: 'claims-index',
+      dataType: 'float32',
+      dimension: 1024,
+      distanceMetric: 'cosine',
+      metadataConfiguration: {
+        nonFilterableMetadataKeys: [
+          'AMAZON_BEDROCK_TEXT',
+          'AMAZON_BEDROCK_METADATA',
+        ],
+      },
+    });
+    vectorIndex.addDependency(vectorBucket);
+
+    const kbRole = new iam.Role(this, 'KnowledgeBaseRole', {
+      assumedBy: new iam.ServicePrincipal('bedrock.amazonaws.com'),
+      inlinePolicies: {
+        BedrockModelAccess: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              actions: ['bedrock:InvokeModel'],
+              resources: [
+                `arn:aws:bedrock:${region}::foundation-model/amazon.titan-embed-text-v2:0`,
+              ],
+            }),
+          ],
+        }),
+        S3VectorsAccess: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              actions: [
+                's3vectors:PutVectors',
+                's3vectors:GetVectors',
+                's3vectors:DeleteVectors',
+                's3vectors:QueryVectors',
+                's3vectors:GetIndex',
+              ],
+              resources: [`${vectorBucket.attrVectorBucketArn}/index/*`],
+            }),
+          ],
+        }),
+        S3DataSourceAccess: new iam.PolicyDocument({
+          statements: [
+            new iam.PolicyStatement({
+              actions: ['s3:ListBucket'],
+              resources: [knowledgeBaseSource.bucketArn],
+            }),
+            new iam.PolicyStatement({
+              actions: ['s3:GetObject'],
+              resources: [knowledgeBaseSource.arnForObjects('*')],
+            }),
+          ],
+        }),
+      },
+    });
+
+    const knowledgeBase = new bedrock.CfnKnowledgeBase(
+      this,
+      'ClaimsKnowledgeBase',
+      {
+        name: 'claims-kb',
+        roleArn: kbRole.roleArn,
+        knowledgeBaseConfiguration: {
+          type: 'VECTOR',
+          vectorKnowledgeBaseConfiguration: {
+            embeddingModelArn: `arn:aws:bedrock:${region}::foundation-model/amazon.titan-embed-text-v2:0`,
+          },
+        },
+        storageConfiguration: {
+          type: 'S3_VECTORS',
+          s3VectorsConfiguration: {
+            vectorBucketArn: vectorBucket.attrVectorBucketArn,
+            indexArn: vectorIndex.attrIndexArn,
+          },
+        },
+      },
+    );
+    knowledgeBase.addDependency(vectorIndex);
+
+    new bedrock.CfnDataSource(this, 'PolicyDataSource', {
+      knowledgeBaseId: knowledgeBase.attrKnowledgeBaseId,
+      name: 'HealthClaimsPolicyDataSource',
+      dataSourceConfiguration: {
+        type: 'S3',
+        s3Configuration: {
+          bucketArn: knowledgeBaseSource.bucketArn,
+        },
+      },
+    });
+
     const presignedUrlLogGroup = new logs.LogGroup(
       this,
       'PresignedUrlLogGroup',
@@ -138,11 +239,14 @@ export class InsuranceClaimsStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromAsset('app/lambda-functions/claim-processor'),
       logGroup: claimProcessorLogGroup,
+      timeout: cdk.Duration.seconds(30),
       environment: {
         EXTRACTION_MODEL_ID: inferenceProfileId,
         CLAIMS_TABLE_NAME: claimsTable.tableName,
         GUARDRAIL_ID: guardrail.attrGuardrailId,
         GUARDRAIL_VERSION: guardrailVersion.attrVersion,
+        KNOWLEDGE_BASE_ID: knowledgeBase.attrKnowledgeBaseId,
+        SUMMARIZATION_MODEL_ARN: `arn:aws:bedrock:${region}:${account}:inference-profile/eu.amazon.nova-micro-v1:0`,
       },
     });
     claimProcessorFn.addToRolePolicy(
@@ -167,20 +271,10 @@ export class InsuranceClaimsStack extends cdk.Stack {
     );
     claimProcessorFn.addToRolePolicy(
       new iam.PolicyStatement({
-        effect: iam.Effect.DENY,
-        actions: [
-          'bedrock:InvokeModel',
-          'bedrock:InvokeModelWithResponseStream',
-        ],
+        actions: ['bedrock:GetInferenceProfile'],
         resources: [
-          `arn:aws:bedrock:*::foundation-model/${modelId}`,
           `arn:aws:bedrock:*:${account}:inference-profile/${inferenceProfileId}`,
         ],
-        conditions: {
-          StringNotLike: {
-            'bedrock:GuardrailIdentifier': `arn:aws:bedrock:${region}:${account}:guardrail/${guardrail.attrGuardrailId}:*`,
-          },
-        },
       }),
     );
     claimProcessorFn.addToRolePolicy(
@@ -188,6 +282,14 @@ export class InsuranceClaimsStack extends cdk.Stack {
         actions: ['bedrock:ApplyGuardrail'],
         resources: [
           `arn:aws:bedrock:${region}:${account}:guardrail/${guardrail.attrGuardrailId}`,
+        ],
+      }),
+    );
+    claimProcessorFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:RetrieveAndGenerate', 'bedrock:Retrieve'],
+        resources: [
+          `arn:aws:bedrock:${region}:${account}:knowledge-base/${knowledgeBase.attrKnowledgeBaseId}`,
         ],
       }),
     );
@@ -239,14 +341,6 @@ export class InsuranceClaimsStack extends cdk.Stack {
       },
     );
 
-    const connectHandlerLogGroup = new logs.LogGroup(
-      this,
-      'ConnectHandlerLogGroup',
-      {
-        retention: logs.RetentionDays.FIVE_DAYS,
-      },
-    );
-
     const connectHandlerFn = new lambda.Function(this, 'ConnectHandlerFn', {
       runtime: lambda.Runtime.PYTHON_3_14,
       handler: 'index.handler',
@@ -254,17 +348,8 @@ export class InsuranceClaimsStack extends cdk.Stack {
       environment: {
         CLAIMS_TABLE_NAME: claimsTable.tableName,
       },
-      logGroup: connectHandlerLogGroup,
     });
     claimsTable.grantWriteData(connectHandlerFn);
-
-    const disconnectHandlerLogGroup = new logs.LogGroup(
-      this,
-      'DisconnectHandlerLogGroup',
-      {
-        retention: logs.RetentionDays.FIVE_DAYS,
-      },
-    );
 
     const disconnectHandlerFn = new lambda.Function(
       this,
@@ -278,7 +363,6 @@ export class InsuranceClaimsStack extends cdk.Stack {
         environment: {
           CLAIMS_TABLE_NAME: claimsTable.tableName,
         },
-        logGroup: disconnectHandlerLogGroup,
       },
     );
     claimsTable.grantWriteData(disconnectHandlerFn);

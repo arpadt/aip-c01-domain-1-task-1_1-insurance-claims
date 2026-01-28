@@ -12,6 +12,8 @@ interface ClaimSummary {
   InputTokens: { S: string };
   OutputTokens: { S: string };
   SummaryLength: { S: string };
+  SummarizationTimeMilliSeconds: { S: string };
+  GuardrailActionDuringExtraction: { S: string };
 }
 
 function App() {
@@ -150,9 +152,10 @@ function App() {
                   <div className='mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500 space-y-1'>
                     <p>Model: {claim.ModelId.S}</p>
                     <p>
-                      Input Tokens: {claim.InputTokens.S} | Output Tokens:{' '}
-                      {claim.OutputTokens.S} | Summary Length:{' '}
-                      {claim.SummaryLength.S} characters
+                      Summary Length: {claim.SummaryLength.S} characters |
+                      Processing Time: {claim.SummarizationTimeMilliSeconds.S}{' '}
+                      ms | Guardrail Intervention:{' '}
+                      {claim.GuardrailActionDuringExtraction.S}{' '}
                     </p>
                   </div>
                 </div>
