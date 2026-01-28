@@ -4,7 +4,7 @@ This project is an implementation of the Skill Builder exam preparation learning
 
 Code and architecture patterns are based on AWS training materials.
 
-![Domain 1 Review: AWS Certified Generative AI Developer - Professional (AIP-C01- English)](https://skillbuilder.aws/learn/GT2P1KK636/domain-1-review-aws-certified-generative-ai-developer--professional-aipc01-english/4GWFTZBZ74?parentId=4SCMN2659K)
+[Domain 1 Review: AWS Certified Generative AI Developer - Professional (AIP-C01- English)](https://skillbuilder.aws/learn/GT2P1KK636/domain-1-review-aws-certified-generative-ai-developer--professional-aipc01-english/4GWFTZBZ74?parentId=4SCMN2659K)
 
 ## Pre-requisites
 
